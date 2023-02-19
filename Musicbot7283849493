@@ -1,0 +1,54 @@
+import os
+import logging
+import spotipy
+import spotipy.util as util
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram import ChatAction
+
+# Встановлення логера
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+
+logger = logging.getLogger(__name__)
+
+# Отримання ключа доступу до Spotify API
+SPOTIFY_API_KEY = os.environ.get('SPOTIFY_API_KEY')
+SPOTIFY_API_SECRET = os.environ.get('SPOTIFY_API_SECRET')
+SPOTIFY_REDIRECT_URI = os.environ.get('SPOTIFY_REDIRECT_URI')
+SPOTIFY_USERNAME = os.environ.get('SPOTIFY_USERNAME')
+SPOTIFY_SCOPE = 'user-library-read,user-read-playback-state,user-modify-playback-state'
+
+# Отримання токена доступу до Spotify
+token = util.prompt_for_user_token(SPOTIFY_USERNAME, SPOTIFY_SCOPE,
+                                   client_id=SPOTIFY_API_KEY,
+                                   client_secret=SPOTIFY_API_SECRET,
+                                   redirect_uri=SPOTIFY_REDIRECT_URI)
+
+# Ініціалізація Spotipy API
+sp = spotipy.Spotify(auth=token)
+
+# Обробник команди /start
+def start(update, context):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Привіт! Введіть ім'я виконавця або назву пісні, яку ви хочете послухати.")
+
+# Обробник команди /help
+def help(update, context):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Я можу знайти та відтворити музику з Spotify. Просто введіть ім'я виконавця або назву пісні, яку ви хочете послухати.")
+
+# Обробник повідомлень
+def echo(update, context):
+    query = update.message.text
+    context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+    result = sp.search(q=query, limit=1, offset=0, type='track')
+
+    if result and result['tracks'] and result['tracks']['items']:
+        track = result['tracks']['items'][0]
+        track_uri = track['uri']
+        sp.start_playback(uris=[track_uri])
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Playing: " + track['name'])
+    else:
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I couldn't find that track")
+
+# Обробник помилок
+def error(update, context):
+    logger
